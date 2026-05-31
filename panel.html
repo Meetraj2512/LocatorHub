@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LocatorHub</title>
+<style>
+  :root {
+    --bg:       #1e1e1e;
+    --surface:  #2a2a2a;
+    --surface2: #333333;
+    --border:   #3c4043;
+    --text:     #e8eaed;
+    --muted:    #9aa0a6;
+    --green:    #81c995;
+    --yellow:   #fdd663;
+    --red:      #f28b82;
+    --blue:     #8ab4f8;
+    --mono: 'Consolas', 'Monaco', 'Lucida Console', monospace;
+    --ui:   -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { height: 100%; }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--ui);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  /* ── Sticky header ──────────────────────────────────── */
+  #header {
+    flex-shrink: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 10px 5px;
+    z-index: 20;
+  }
+
+  #title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 5px;
+  }
+
+  #logo {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--blue);
+    letter-spacing: 0.3px;
+    user-select: none;
+  }
+
+  #refresh-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--ui);
+    transition: color 0.15s, border-color 0.15s;
+  }
+  #refresh-btn:hover { color: var(--text); border-color: var(--blue); }
+
+  /* ── Element info bar ───────────────────────────────── */
+  #elem-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-height: 18px;
+    font-size: 11px;
+  }
+
+  .elem-tag  { color: var(--blue);   font-family: var(--mono); font-weight: 600; }
+  .elem-id   { color: var(--yellow); font-family: var(--mono); }
+  .elem-cls  { color: var(--green);  font-family: var(--mono); }
+  .elem-attr {
+    color: var(--muted);
+    font-family: var(--mono);
+    background: var(--surface2);
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 10px;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Scrollable content area ────────────────────────── */
+  #content {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  /* ── Status / loading ───────────────────────────────── */
+  #status {
+    padding: 28px 12px;
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+  }
+  #loading {
+    display: none;
+    padding: 14px;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  /* ── Section headers (sticky within #content) ───────── */
+  .section-hdr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.9px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    user-select: none;
+  }
+
+  .section-hdr.neutral { color: var(--muted); }
+
+  .section-count {
+    margin-left: auto;
+    font-weight: 400;
+    opacity: 0.7;
+  }
+
+  /* ── Locator rows ───────────────────────────────────── */
+  .locator-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--border);
+    min-height: 28px;
+    transition: background 0.1s;
+  }
+  .locator-row:hover { background: var(--surface2); }
+
+  .strategy-badge {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    min-width: 72px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .locator-str {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: default;
+    min-width: 0;
+  }
+
+  .match-badge {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+  .match-badge.unique   { background: rgba(129,201,149,.15); color: var(--green); }
+  .match-badge.multiple { background: rgba(253,214,99,.15);  color: var(--yellow); }
+  .match-badge.none     { background: rgba(242,139,130,.15); color: var(--red); }
+  .match-badge.error    { background: rgba(154,160,166,.1);  color: var(--muted); }
+
+  .fragile-pill {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--yellow);
+    background: rgba(253,214,99,.1);
+    border: 1px solid rgba(253,214,99,.3);
+    padding: 1px 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .copy-btn {
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 1px 7px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: var(--ui);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .copy-btn:hover  { border-color: var(--blue);  color: var(--blue); }
+  .copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+  .empty-group {
+    padding: 7px 10px;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 11px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Event listeners ─────────────────────────────────── */
+  .event-type-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    user-select: none;
+  }
+  .event-type-row:hover { background: var(--surface2); }
+
+  .event-chevron {
+    font-size: 9px;
+    color: var(--muted);
+    transition: transform 0.15s;
+    flex-shrink: 0;
+    width: 9px;
+  }
+  .event-chevron.open { transform: rotate(90deg); }
+
+  .event-type-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--yellow);
+    font-weight: 600;
+  }
+
+  .event-count-badge {
+    font-size: 10px;
+    background: rgba(253,214,99,.12);
+    color: var(--yellow);
+    padding: 1px 5px;
+    border-radius: 10px;
+  }
+
+  .event-handler-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px 3px 26px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .event-handler-row:hover { background: var(--surface2); }
+
+  .handler-arrow { color: var(--muted); font-size: 10px; flex-shrink: 0; }
+
+  .handler-name {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .handler-flag {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background: var(--surface2);
+    color: var(--muted);
+  }
+  .handler-flag.capture { background: rgba(138,180,248,.14); color: var(--blue); }
+  .handler-flag.passive { background: rgba(129,201,149,.14); color: var(--green); }
+  .handler-flag.once    { background: rgba(253,214,99,.14);  color: var(--yellow); }
+
+  /* ── Styles ──────────────────────────────────────────── */
+  .styles-sub-hdr {
+    padding: 4px 10px 3px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .style-row {
+    display: flex;
+    align-items: baseline;
+    padding: 2px 10px;
+    gap: 5px;
+    border-bottom: 1px solid rgba(60,64,67,.4);
+    transition: background 0.1s;
+  }
+  .style-row:hover { background: var(--surface2); }
+
+  .style-prop {
+    flex-shrink: 0;
+    min-width: 120px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--blue);
+  }
+
+  .style-val {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+    word-break: break-all;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .color-swatch {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    border: 1px solid rgba(255,255,255,.2);
+    flex-shrink: 0;
+  }
+
+  .styles-divider { height: 1px; background: var(--border); }
+
+  .no-inline-note {
+    padding: 4px 10px;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 11px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Results meta line ───────────────────────────────── */
+  #results-meta {
+    padding: 4px 10px;
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 0.2px;
+  }
+
+  /* ── Rank badge ──────────────────────────────────────── */
+  .rank-badge {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+    line-height: 1;
+  }
+  .rank-badge.rank-top { background: rgba(129,201,149,.2); color: var(--green); }
+  .rank-badge.rank-mid { background: rgba(253,214,99,.2);  color: var(--yellow); }
+  .rank-badge.rank-low { background: rgba(242,139,130,.2); color: var(--red); }
+
+  /* ── Match count ─────────────────────────────────────── */
+  .match-count {
+    flex-shrink: 0;
+    display: flex; align-items: baseline; gap: 3px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .match-count.unique   { background: rgba(129,201,149,.12); color: var(--green); }
+  .match-count.multiple { background: rgba(253,214,99,.12);  color: var(--yellow); }
+  .match-count.none     { background: rgba(242,139,130,.12); color: var(--red); }
+  .match-count.error    { background: rgba(154,160,166,.1);  color: var(--muted); }
+
+  .mc-num   { font-size: 12px; font-weight: 700; font-family: var(--mono); }
+  .mc-label { font-size: 9px;  font-weight: 400; text-transform: uppercase; letter-spacing: 0.4px; }
+
+  .hidden { display: none !important; }
+
+</style>
+</head>
+<body>
+
+<!-- Sticky header -->
+<div id="header">
+  <div id="title-row">
+    <div id="logo">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="6" stroke="#8ab4f8" stroke-width="1.5" fill="none"/>
+        <circle cx="8" cy="8" r="2" fill="#8ab4f8"/>
+        <line x1="8" y1="1"    x2="8"  y2="4.5"  stroke="#8ab4f8" stroke-width="1.5"/>
+        <line x1="8" y1="11.5" x2="8"  y2="15"   stroke="#8ab4f8" stroke-width="1.5"/>
+        <line x1="1" y1="8"    x2="4.5" y2="8"   stroke="#8ab4f8" stroke-width="1.5"/>
+        <line x1="11.5" y1="8" x2="15"  y2="8"   stroke="#8ab4f8" stroke-width="1.5"/>
+      </svg>
+      LocatorHub
+    </div>
+    <button id="refresh-btn">↻ Refresh</button>
+  </div>
+  <div id="elem-bar">
+    <span class="elem-tag" id="elem-tag"></span>
+    <span class="elem-id"  id="elem-id"></span>
+    <span class="elem-cls" id="elem-cls"></span>
+    <span id="elem-attrs"></span>
+  </div>
+</div>
+
+<!-- Single scrollable column -->
+<div id="content">
+
+  <!-- ── Locators ─────────────────────────────────────── -->
+  <div id="status">Select an element in the Elements panel</div>
+  <div id="loading">Analyzing…</div>
+
+  <div id="results" class="hidden">
+    <div id="results-meta"></div>
+    <div id="locator-list"></div>
+  </div>
+
+  <!-- ── Event listeners ──────────────────────────────── -->
+  <div id="events-area" class="hidden">
+    <div class="section-hdr neutral">
+      ⚡ Event Listeners
+      <span class="section-count" id="cnt-events"></span>
+    </div>
+    <div id="events-list"></div>
+  </div>
+
+  <!-- ── Styles ───────────────────────────────────────── -->
+  <div id="styles-area" class="hidden">
+    <div class="section-hdr neutral">🎨 Styles</div>
+    <div id="styles-content"></div>
+  </div>
+
+</div>
+
+<script src="panel.js"></script>
+</body>
+</html>
